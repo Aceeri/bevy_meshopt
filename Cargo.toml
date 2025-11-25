@@ -1,10 +1,16 @@
 [package]
 name = "bevy_meshopt"
 description = "Small wrapper around the `meshopt` library for using with Bevy!"
-author = "aceeri (conmcclusk@gmail.com)"
+authors = ["aceeri (conmcclusk@gmail.com)"]
 version = "0.1.0"
+repository = "https://github.com/aceeri/bevy_meshopt"
 edition = "2024"
 
 [dependencies]
 bevy = { version = "0.17", default-features = false, features = [ "bevy_mesh" ] }
 meshopt = "0.6.2"
+
+[dev-dependencies]
+bevy_egui = "0.38"
+bevy-inspector-egui = "0.35"
+bevy = { version = "0.17", default-features = true, features = [ "bevy_gltf"] }
