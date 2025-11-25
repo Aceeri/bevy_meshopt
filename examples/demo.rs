@@ -82,7 +82,7 @@ pub struct Simplify(bool);
 fn simplify_meshes(
     mut simplify: ResMut<Simplify>,
     params: Res<SimplifySettings>,
-    query: Query<&Mesh3d>,
+    mut query: Query<&mut Mesh3d>,
     mut meshes: ResMut<Assets<Mesh>>,
 ) {
     if !simplify.0 {
@@ -95,15 +95,16 @@ fn simplify_meshes(
     let mut indices_before = 0;
     let mut indices_after = 0;
 
-    for mesh in query.iter() {
-        if let Some(mesh) = meshes.get_mut(mesh.id()) {
+    for mut mesh3d in &mut query {
+        if let Some(original_mesh) = meshes.get(mesh3d.id()) {
+            let mut mesh = original_mesh.clone();
             positions_before += mesh
                 .attribute(Mesh::ATTRIBUTE_POSITION)
                 .map_or(0, |a| a.len());
             indices_before += mesh.indices().map_or(0, |indices| indices.len());
 
             mesh.assert_indices_u32();
-            if let Err(err) = mesh.simplify_in_place(&params.0) {
+            if let Err(err) = mesh.simplify(&params.0) {
                 error!("Mesh simplification failed: {}", err);
             };
 
@@ -111,6 +112,8 @@ fn simplify_meshes(
                 .attribute(Mesh::ATTRIBUTE_POSITION)
                 .map_or(0, |a| a.len());
             indices_after += mesh.indices().map_or(0, |indices| indices.len());
+
+            *mesh3d = Mesh3d(meshes.add(mesh));
         }
     }
 
@@ -183,7 +186,7 @@ pub fn simplify_settings_ui(
                     match &mut settings.target_index_count {
                         TargetIndices::Count(count) => {
                             ui.add(
-                                egui::Slider::new(count, 1..=100000)
+                                egui::Slider::new(count, 1..=100_000)
                                     .logarithmic(true)
                                     .text("triangles"),
                             );
@@ -193,13 +196,6 @@ pub fn simplify_settings_ui(
                         }
                     }
                 });
-
-
-            // egui::ComboBox::from_label("Target Count")
-            //     .selected_text(format!("{:?}", settings.target_index_count))
-            //     .show_ui(ui, |ui| {
-            //         // ui.add(egui::Slider::new(&mut settings.target_count, 1..=1000000));
-            //     });
 
             ui.add_space(10.0);
 

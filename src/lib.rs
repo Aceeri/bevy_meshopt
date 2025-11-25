@@ -7,16 +7,17 @@ pub use meshopt::SimplifyOptions;
 pub trait MeshExt {
     /// Assert that the mesh has u32 indices, replaces if it is u16.
     fn assert_indices_u32(&mut self);
+    /// [`meshopt::simplify`] but returns the new indices and error.
+    #[must_use]
+    fn simplify_new_indices(&self, params: &SimplifyParams) -> Result<(Vec<u32>, f32), OptError>;
     /// [`meshopt::simplify`]
-    fn simplify(&self, params: &SimplifyParams) -> Result<(Vec<u32>, f32), OptError>;
-    /// [`meshopt::simplify`]
-    fn simplify_in_place(&mut self, params: &SimplifyParams) -> Result<f32, OptError>;
+    fn simplify(&mut self, params: &SimplifyParams) -> Result<f32, OptError>;
     /// [`meshopt::optimize_vertex_fetch`]
-    fn optimize_vertex_fetch_in_place(&mut self) -> Result<(), OptError>;
+    fn optimize_vertex_fetch(&mut self) -> Result<(), OptError>;
     /// [`meshopt::optimize_overdraw`]
-    fn optimize_overdraw_in_place(&mut self, threshold: f32) -> Result<(), OptError>;
+    fn optimize_overdraw(&mut self, threshold: f32) -> Result<(), OptError>;
     /// [`meshopt::optimize_vertex_cache`]
-    fn optimize_vertex_cache_in_place(&mut self) -> Result<(), OptError>;
+    fn optimize_vertex_cache(&mut self) -> Result<(), OptError>;
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -179,13 +180,15 @@ impl MeshExt for Mesh {
         assert_u32_indices(self.indices_mut());
     }
 
-    fn simplify_in_place(&mut self, params: &SimplifyParams) -> Result<f32, OptError> {
-        let (new_indices, error) = self.simplify(params)?;
-        self.insert_indices(Indices::U32(new_indices));
+    fn simplify(&mut self, params: &SimplifyParams) -> Result<f32, OptError> {
+        let (new_indices, error) = self.simplify_new_indices(params)?;
+        if new_indices.len() >= 3 {
+            self.insert_indices(Indices::U32(new_indices));
+        }
         Ok(error)
     }
 
-    fn simplify(&self, params: &SimplifyParams) -> Result<(Vec<u32>, f32), OptError> {
+    fn simplify_new_indices(&self, params: &SimplifyParams) -> Result<(Vec<u32>, f32), OptError> {
         let indices = mesh_indices(self)?;
         let positions = mesh_positions(self)?;
 
@@ -237,7 +240,7 @@ impl MeshExt for Mesh {
         Ok((new_indices, result_error))
     }
 
-    fn optimize_vertex_fetch_in_place(&mut self) -> Result<(), OptError> {
+    fn optimize_vertex_fetch(&mut self) -> Result<(), OptError> {
         let mut indices_mut = take_mesh_indices_mut(self)?;
         let Some(VertexAttributeValues::Float32x3(positions)) =
             self.attribute_mut(Mesh::ATTRIBUTE_POSITION)
@@ -250,7 +253,7 @@ impl MeshExt for Mesh {
         Ok(())
     }
 
-    fn optimize_overdraw_in_place(&mut self, threshold: f32) -> Result<(), OptError> {
+    fn optimize_overdraw(&mut self, threshold: f32) -> Result<(), OptError> {
         let mut indices_mut = take_mesh_indices_mut(self)?;
         let positions = mesh_positions(self)?;
         meshopt::optimize_overdraw_in_place_decoder(&mut indices_mut, positions, threshold);
@@ -258,7 +261,7 @@ impl MeshExt for Mesh {
         Ok(())
     }
 
-    fn optimize_vertex_cache_in_place(&mut self) -> Result<(), OptError> {
+    fn optimize_vertex_cache(&mut self) -> Result<(), OptError> {
         let positions_len = mesh_positions(self)?.len();
         let mut indices_mut = mesh_indices_mut(self)?;
         meshopt::optimize_vertex_cache_in_place(&mut indices_mut, positions_len);
